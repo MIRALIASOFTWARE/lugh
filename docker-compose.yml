@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   llama-cpp:
     image: ghcr.io/ggerganov/llama.cpp:server
