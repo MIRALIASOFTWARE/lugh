@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  llama-cpp:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    
+    environment:
+      - LLAMA_ARG_MODEL=/models/meta-llama-3-8b-instruct.Q4_K_M.gguf
+      - LLAMA_ARG_CTX_SIZE=4096
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8080
+      - LLAMA_ARG_THREADS=6      # Optimized: Utilizes 6 of your 8 Xeon v3 cores
+      - LLAMA_ARG_MLOCK=true      # Prevents VPS memory swapping for stable inference
+    
+    volumes:
+      - /mnt/shared/models:/models
+    
+    networks:
+      - dokploy-network          # Attaches to Dokploy's main overlay network
+
+    deploy:
+      mode: replicated
+      replicas: 2                # Spreads copies across your Swarm nodes
+      
+      placement:
+        max_replicas_per_node: 1 # Strictly restricts to 1 container per 8-core node
+      
+      resources:
+        limits:
+          cpus: '6.0'            # Hard cap to match your thread execution allocation
+          memory: 7G             # Safe buffer for an 8B Q4 model execution
+      
+      # Swarm-compliant Traefik routing configuration
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.llama.rule=Host(`llama.miraliasoftware.cu`)"
+        - "traefik.http.routers.llama.entrypoints=websecure"
+        - "traefik.http.routers.llama.tls.certresolver=letsencrypt"
+        - "traefik.http.services.llama.loadbalancer.server.port=8080"
+
+networks:
+  dokploy-network:
+    external: true               # Points to your preexisting Dokploy network
